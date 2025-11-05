@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeContentPadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,6 +32,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.vinceglb.filekit.FileKit
+import io.github.vinceglb.filekit.dialogs.FileKitType
+import io.github.vinceglb.filekit.dialogs.openFilePicker
+import io.github.vinceglb.filekit.mimeType
+import io.github.vinceglb.filekit.name
+import io.github.vinceglb.filekit.nameWithoutExtension
+import io.github.vinceglb.filekit.readBytes
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import kotlin.math.floor
 
@@ -59,9 +70,14 @@ fun App() {
     val trackDuration = 83f
     var seekValue by remember { mutableFloatStateOf(0f) }
     var isPlaying by remember { mutableStateOf(false) }
+    var title by remember { mutableStateOf("Lorem ipsum") }
+
+    val coroutineScope = rememberCoroutineScope()
+
     MaterialTheme {
         Box(
             Modifier
+                .safeDrawingPadding()
                 .fillMaxSize()
         ) {
             Column(
@@ -89,7 +105,7 @@ fun App() {
                     )
                 }
                 Text(
-                    text = "Lorem ipsum",
+                    text = title,
                     fontSize = 25.sp,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -136,7 +152,14 @@ fun App() {
                         containerColor = Color(0xFF2A48F8),
                         contentColor = Color.White
                     ),
-                    onClick = {},
+                    onClick = {
+                        coroutineScope.launch {
+                            val file = FileKit.openFilePicker(type = FileKitType.File("mp3"))
+                            file?.let { file ->
+                                title = file.nameWithoutExtension
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                 ) {
