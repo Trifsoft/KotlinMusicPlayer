@@ -1,5 +1,8 @@
 package org.trifsoft.musicplayer
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +12,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,20 +34,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.vinceglb.filekit.FileKit
-import io.github.vinceglb.filekit.dialogs.FileKitType
-import io.github.vinceglb.filekit.dialogs.openFilePicker
-import io.github.vinceglb.filekit.mimeType
-import io.github.vinceglb.filekit.name
-import io.github.vinceglb.filekit.nameWithoutExtension
-import io.github.vinceglb.filekit.readBytes
-import kotlinx.coroutines.coroutineScope
+import com.mohamedrejeb.calf.picker.FilePickerFileType
+import com.mohamedrejeb.calf.picker.FilePickerSelectionMode
+import com.mohamedrejeb.calf.picker.rememberFilePickerLauncher
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import kotlin.math.floor
+import kotlin.time.ExperimentalTime
 
-fun timeString(seekValue: Float): String {
-    val intTime = floor(seekValue).toInt()
+val lightGrayColor = Color(0xFFCCCCCC)
+val darkGrayColor = Color(0xFF888888)
+val space = 10.dp
+
+fun timeString(time: Float): String {
+    val intTime = floor(time).toInt()
     val minutesString = if(intTime < 600) {
         "0${intTime/60}"
     } else {
@@ -59,20 +61,19 @@ fun timeString(seekValue: Float): String {
     return "$minutesString:$secondsString"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalTime::class)
 @Composable
 @Preview
 fun App() {
-    val space = 10.dp
-    val lightGrayColor = Color(0xFFCCCCCC)
-    val darkGrayColor = Color(0xFF888888)
 
-    val trackDuration = 83f
-    var seekValue by remember { mutableFloatStateOf(0f) }
-    var isPlaying by remember { mutableStateOf(false) }
-    var title by remember { mutableStateOf("Lorem ipsum") }
+    var audioPlayer by remember { mutableStateOf<AudioPlayer?>(null, neverEqualPolicy()) }
 
-    val coroutineScope = rememberCoroutineScope()
+    val filePicker = rememberFilePickerLauncher(
+        type = FilePickerFileType.Audio,
+        selectionMode = FilePickerSelectionMode.Single
+    ) { kmpFiles ->
+        audioPlayer = getAudioPlayer(kmpFiles.first())
+    }
 
     MaterialTheme {
         Box(
@@ -89,62 +90,13 @@ fun App() {
                     .align(Alignment.Center)
                     .padding(space)
             ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .background(lightGrayColor, RoundedCornerShape(20.dp))
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.MusicNote,
-                        tint = darkGrayColor,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize(0.5f)
-                            .align(Alignment.Center)
-                    )
-                }
-                Text(
-                    text = title,
-                    fontSize = 25.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Slider(
-                    value = seekValue,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color.Black
-                    ),
-                    track = { sliderState ->
-                        SliderDefaults.Track(
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = darkGrayColor,
-                                inactiveTrackColor = lightGrayColor,
-                            ),
-                            drawStopIndicator = { },
-                            sliderState = sliderState)
-                    },
-                    onValueChange = { seekValue = it },
-                    valueRange = 0f..trackDuration
-                )
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                ) {
-                    Text(timeString(seekValue))
-                    Text(timeString(trackDuration))
-                }
-                IconButton(
-                    onClick = { isPlaying = !isPlaying }
-                ) {
-                    Icon(
-                        imageVector = if(isPlaying) {
-                            Icons.Filled.Pause
-                        } else {
-                            Icons.Filled.PlayArrow
-                        },
-                        contentDescription = null
-                    )
+                audioPlayer.let { audioPlayer ->
+                    if(audioPlayer == null) {
+                        Text("Song not selected.")
+                    }
+                    else {
+                        Player(audioPlayer)
+                    }
                 }
                 Button(
                     shape = RoundedCornerShape(10.dp),
@@ -152,14 +104,7 @@ fun App() {
                         containerColor = Color(0xFF2A48F8),
                         contentColor = Color.White
                     ),
-                    onClick = {
-                        coroutineScope.launch {
-                            val file = FileKit.openFilePicker(type = FileKitType.File("mp3"))
-                            file?.let { file ->
-                                title = file.nameWithoutExtension
-                            }
-                        }
-                    },
+                    onClick = filePicker::launch,
                     modifier = Modifier
                         .fillMaxWidth()
                 ) {
@@ -167,5 +112,96 @@ fun App() {
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalTime::class)
+@Composable
+fun Player(audioPlayer: AudioPlayer) {
+    var seekState by remember { mutableStateOf(Animatable(0f)) }
+    val coroutineScope = rememberCoroutineScope()
+    val startAnimation: suspend ()->Unit = {
+        seekState.animateTo(
+            audioPlayer.duration,
+            animationSpec = tween(
+                ((audioPlayer.duration - seekState.value) * 1000f).toInt(),
+                easing = LinearEasing
+            ),
+        )
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .background(lightGrayColor, RoundedCornerShape(20.dp))
+    ) {
+        Icon(
+            imageVector = Icons.Filled.MusicNote,
+            tint = darkGrayColor,
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize(0.5f)
+                .align(Alignment.Center)
+        )
+    }
+    Text(
+        text = "Lorem ipsum",//audioPlayer.title,
+        fontSize = 25.sp,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Slider(
+        value = seekState.value,
+        colors = SliderDefaults.colors(
+            thumbColor = Color.Black
+        ),
+        track = { sliderState ->
+            SliderDefaults.Track(
+                colors = SliderDefaults.colors(
+                    activeTrackColor = darkGrayColor,
+                    inactiveTrackColor = lightGrayColor,
+                ),
+                drawStopIndicator = { },
+                sliderState = sliderState
+            )
+        },
+        onValueChange = {
+            val isRunning = seekState.isRunning
+            seekState = Animatable(it)
+            if(isRunning) {
+                coroutineScope.launch { startAnimation() }
+            }
+            audioPlayer.seekTo(it)
+        },
+        valueRange = 0f..audioPlayer.duration,
+    )
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
+        Text(timeString(seekState.value))
+        Text(timeString(audioPlayer.duration))
+    }
+    IconButton(
+        onClick = {
+            audioPlayer.playPause()
+            coroutineScope.launch {
+                if(seekState.isRunning) {
+                    seekState.stop()
+                }
+                else {
+                    startAnimation()
+                }
+            }
+        }
+    ) {
+        Icon(
+            imageVector = if(seekState.isRunning) {
+                Icons.Filled.Pause
+            } else {
+                Icons.Filled.PlayArrow
+            },
+            contentDescription = null
+        )
     }
 }
