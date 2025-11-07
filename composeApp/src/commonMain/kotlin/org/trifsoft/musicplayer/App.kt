@@ -72,7 +72,9 @@ fun App() {
         type = FilePickerFileType.Audio,
         selectionMode = FilePickerSelectionMode.Single
     ) { kmpFiles ->
-        audioPlayer = getAudioPlayer(kmpFiles.first())
+        if(kmpFiles.isNotEmpty()) {
+            audioPlayer = getAudioPlayer(kmpFiles.first())
+        }
     }
 
     MaterialTheme {
