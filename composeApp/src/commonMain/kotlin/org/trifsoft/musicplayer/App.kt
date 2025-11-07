@@ -144,11 +144,13 @@ fun Player(audioPlayer: AudioPlayer) {
                 .align(Alignment.Center)
         )
     }
-    Text(
-        text = "Lorem ipsum",//audioPlayer.title,
-        fontSize = 25.sp,
-        modifier = Modifier.fillMaxWidth()
-    )
+    audioPlayer.title?.let { title ->
+        Text(
+            text = title,
+            fontSize = 25.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
     Slider(
         value = seekState.value,
         colors = SliderDefaults.colors(

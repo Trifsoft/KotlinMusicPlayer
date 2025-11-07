@@ -5,8 +5,9 @@ import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
 interface AudioPlayer {
-
     val duration: Float
+    val title: String?
+
     fun seekTo(value: Float)
     fun playPause()
 }

@@ -1,6 +1,5 @@
 package org.trifsoft.musicplayer
 
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import com.mohamedrejeb.calf.io.KmpFile
@@ -28,6 +27,7 @@ class WasmJsAudioPlayer(file: KmpFile): AudioPlayer {
     }
 
     override val duration: Float by durationState
+    override val title: String? = null
 
     override fun seekTo(value: Float) {
         audioElement.currentTime = value.toDouble()
