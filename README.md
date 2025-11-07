@@ -1,16 +1,69 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Web.
+# 🎵 KotlinMusicPlayer
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-    folder is the appropriate location.
+A lightweight **Compose Multiplatform** music player app that allows users to pick and play audio files from their local storage.  
+It demonstrates the use of **Calf File Picker** for selecting audio files and provides basic playback controls such as play/pause, scrubbing, and track progress visualization.
 
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+---
+
+## ✨ Features
+
+- 🎧 **Play Local Audio Files** — Uses the [Calf File Picker](https://github.com/MohamedRejeb/Calf) library to open the system file picker and select audio files.
+- ⏯️ **Play / Pause Controls** — Simple and responsive playback management.
+- ⏩ **Seek / Scrub Through Song** — Interactive slider to move through the track.
+- 🕒 **Live Time Display** — Shows current playback time and total duration.
+- 🎶 **Title Display** — Displays the loaded song’s title (if available).
+- 🧩 **Multiplatform Compose UI** — Built using `composeApp` with Material 3 styling.
+
+---
+
+## 🧠 Design Decisions
+
+### Audio Source
+The app **does not stream or download music** — it relies entirely on **user-provided local files**.  
+Songs are selected from the user’s device storage using the **Calf File Picker**, which abstracts platform-specific implementations for Android, iOS, Desktop, and Web.
+
+### Architecture
+- The app follows a **single-screen Compose design** with a `Player` composable handling UI and playback state.
+- `AudioPlayer` is an abstraction that encapsulates the actual platform-specific audio playback logic.
+- File selection is handled through:
+  ```kotlin
+  rememberFilePickerLauncher(
+      type = FilePickerFileType.Audio,
+      selectionMode = FilePickerSelectionMode.Single
+  )
+  ```
+- The selected file is passed to a helper function `getAudioPlayer(kmpFiles.first())`, which creates an appropriate `AudioPlayer` instance (if a song is selected).
+
+### Player State Handling
+
+The player’s playback progress is **simulated using an `Animatable<Float, AnimationVector1D>` instance** named `seekState`:
+
+- `seekState.value` — represents the current playback position within the track.
+- `seekState.isRunning` — indicates whether playback is active (playing) or paused.
+- `seekState.animateTo(audioPlayer.duration, animationSpec = tween(((audioPlayer.duration - seekState.value) * 1000f).toInt(), easing = LinearEasing))` — triggers continuous animation of the playback position while the track is playing.
+- `seekState.stop()` — halts the animation when playback is paused.
+
+Using an `Animatable` enables the **`Slider` composable** to smoothly and dynamically represent playback progress through animation.  
+This design choice was made because platform-specific audio players generally provide only **stateless progress values**, which do not support continuous, animated UI updates in Compose.
+
+---
+
+## 🚀 How to Run
+
+### Prerequisites
+- Kotlin 2.0+
+- JetBrains Compose Multiplatform setup
+- Gradle (via `gradlew` wrapper)
+
+## 🧰 Libraries Used
+
+- **JetBrains Compose Multiplatform** — UI toolkit
+- **Calf File Picker** — File picker for KMP (`com.mohamedrejeb.calf.picker`)
+- **Material 3 Components** — Modern Compose design system
+- **Kotlinx Coroutines** — For animation and async playback control
+- **Kotlinx Animation** — For the seekbar progress animation
+
+---
 
 ### Build and Run Android Application
 
@@ -52,12 +105,3 @@ in your IDE's toolbar or run it directly from the terminal:
 
 To build and run the development version of the iOS app, use the run configuration from the run widget
 in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
-
----
-
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
-
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them on [YouTrack](https://youtrack.jetbrains.com/newIssue?project=CMP).
